@@ -126,6 +126,12 @@ def get_arg_parser():
         default=DEFAULT,
         help="Path to CA bundle"
     )
+    parser.add_argument(
+        "--save-path",
+        required=False,
+        default="tracedmodels",
+        help="Path to save models to"
+    )    
 
     return parser
 
@@ -205,14 +211,14 @@ if __name__ == "__main__":
             logger.info("IPEX optimize")
 
         tm = TransformerModel(args.hub_model_id, args.task_type, args.quantize, args.ipex_optimize)
-        path = "/Users/davidkyle/source/eland/tracedmodels/"
-        model_path, config, vocab_path = tm.save(path)
+        os.mkdir(args.save_path)
+        model_path, config, vocab_path = tm.save(args.save_path)
     except TaskTypeError as err:
         logger.error(f"Failed to get model for task type, please provide valid task type via '--task-type' parameter. Caused by {err}")
         exit(1)
 
-    ptm = PyTorchModel(es, args.es_model_id if args.es_model_id else tm.elasticsearch_model_id())
-    model_exists = es.options(ignore_status=404).ml.get_trained_models(model_id=ptm.model_id).meta.status == 200
+    # ptm = PyTorchModel(es, args.es_model_id if args.es_model_id else tm.elasticsearch_model_id())
+    # model_exists = es.options(ignore_status=404).ml.get_trained_models(model_id=ptm.model_id).meta.status == 200
 
     #     if model_exists:
     #         if args.clear_previous:
@@ -240,6 +246,6 @@ if __name__ == "__main__":
     #     logger.info(f"Starting model deployment")
     #     ptm.start()
 
-    logger.info(f"Model successfully imported with id '{ptm.model_id}'")
+    # logger.info(f"Model successfully imported with id '{ptm.model_id}'")
 
 

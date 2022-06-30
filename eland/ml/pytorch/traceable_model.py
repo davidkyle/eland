@@ -46,6 +46,8 @@ class TraceableModel(ABC):
         )
 
     def ipex_optimize(self) -> None:
+        # model needs to be in evaluate mode
+        self._model.eval()
         ipex.optimize(self._model, inplace=True)
 
     def trace(self) -> TracedModelTypes:
