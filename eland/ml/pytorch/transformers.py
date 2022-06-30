@@ -530,7 +530,13 @@ class _TraceableQuestionAnsweringModel(_TransformerTraceableModel):
 
 
 class TransformerModel:
-    def __init__(self, model_id: str, task_type: str, quantize: bool = False):
+    def __init__(
+        self,
+        model_id: str,
+        task_type: str,
+        quantize: bool = False,
+        ipex_optimize: bool = False,
+    ):
         self._model_id = model_id
         self._task_type = task_type.replace("-", "_")
 
@@ -551,6 +557,10 @@ class TransformerModel:
         self._traceable_model = self._create_traceable_model()
         if quantize:
             self._traceable_model.quantize()
+
+        if ipex_optimize:
+            self._traceable_model.ipex_optimize()
+
         self._vocab = self._load_vocab()
         self._config = self._create_config()
 

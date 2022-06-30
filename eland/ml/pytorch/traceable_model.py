@@ -19,6 +19,7 @@ import os.path
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
+import intel_extension_for_pytorch as ipex  # type: ignore
 import torch  # type: ignore
 from torch import nn
 
@@ -43,6 +44,9 @@ class TraceableModel(ABC):
         torch.quantization.quantize_dynamic(
             self._model, {torch.nn.Linear}, dtype=torch.qint8, inplace=True
         )
+
+    def ipex_optimize(self) -> None:
+        ipex.optimize(self._model, inplace=True)
 
     def trace(self) -> TracedModelTypes:
         # model needs to be in evaluate mode
