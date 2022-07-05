@@ -129,8 +129,8 @@ def get_arg_parser():
     parser.add_argument(
         "--save-path",
         required=False,
-        default="tracedmodels",
-        help="Path to save models to"
+        default="",
+        help="Path to save models to. Models will be saved to "
     )    
 
     return parser
@@ -198,54 +198,62 @@ if __name__ == "__main__":
     args = get_arg_parser().parse_args()
 
     # Connect to ES
-    # logger.info("Establishing connection to Elasticsearch")
-    # es = get_es_client(args)
+    logger.info("Establishing connection to Elasticsearch")
+    if not args.save_path:
+        es = get_es_client(args)
 
     # Trace and save model, then upload it from temp file
-    # with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory() as tmp_dir:
 
-    logger.info(f"Loading HuggingFace transformer tokenizer and model '{args.hub_model_id}'")
+        logger.info(f"Loading HuggingFace transformer tokenizer and model '{args.hub_model_id}'")
 
-    try:
-        if args.ipex_optimize:
-            logger.info("IPEX optimize")
+        try:
+            if args.ipex_optimize:
+                logger.info("IPEX optimize")
 
-        tm = TransformerModel(args.hub_model_id, args.task_type, args.quantize, args.ipex_optimize)
-        os.mkdir(args.save_path)
-        model_path, config, vocab_path = tm.save(args.save_path)
-    except TaskTypeError as err:
-        logger.error(f"Failed to get model for task type, please provide valid task type via '--task-type' parameter. Caused by {err}")
-        exit(1)
+            tm = TransformerModel(args.hub_model_id, args.task_type, args.quantize, args.ipex_optimize)
 
-    # ptm = PyTorchModel(es, args.es_model_id if args.es_model_id else tm.elasticsearch_model_id())
-    # model_exists = es.options(ignore_status=404).ml.get_trained_models(model_id=ptm.model_id).meta.status == 200
+            if args.save_path:
+                logger.info(f"Saving traced model to '{args.save_path}'")
+                os.mkdir(args.save_path)
+                model_path, config, vocab_path = tm.save(args.save_path)
+                exit(0)
+            else:
+                model_path, config, vocab_path = tm.save(tmp_dir)
+        except TaskTypeError as err:
+            logger.error(f"Failed to get model for task type, please provide valid task type via '--task-type' parameter. Caused by {err}")
+            exit(1)
 
-    #     if model_exists:
-    #         if args.clear_previous:
-    #             logger.info(f"Stopping deployment for model with id '{ptm.model_id}'")
-    #             ptm.stop()
 
-    #             logger.info(f"Deleting model with id '{ptm.model_id}'")
-    #             ptm.delete()
-    #         else:
-    #             logger.error(f"Trained model with id '{ptm.model_id}' already exists")
-    #             logger.info("Run the script with the '--clear-previous' flag if you want to overwrite the existing model.")
-    #             exit(1)
+    ptm = PyTorchModel(es, args.es_model_id if args.es_model_id else tm.elasticsearch_model_id())
+    model_exists = es.options(ignore_status=404).ml.get_trained_models(model_id=ptm.model_id).meta.status == 200
 
-    #     logger.info(f"Creating model with id '{ptm.model_id}'")
-    #     ptm.put_config(config=config)
+    if model_exists:
+        if args.clear_previous:
+            logger.info(f"Stopping deployment for model with id '{ptm.model_id}'")
+            ptm.stop()
 
-    #     logger.info(f"Uploading model definition")
-    #     ptm.put_model(model_path)
+            logger.info(f"Deleting model with id '{ptm.model_id}'")
+            ptm.delete()
+        else:
+            logger.error(f"Trained model with id '{ptm.model_id}' already exists")
+            logger.info("Run the script with the '--clear-previous' flag if you want to overwrite the existing model.")
+            exit(1)
 
-    #     logger.info(f"Uploading model vocabulary")
-    #     ptm.put_vocab(vocab_path)
+    logger.info(f"Creating model with id '{ptm.model_id}'")
+    ptm.put_config(config=config)
 
-    # # Start the deployed model
-    # if args.start:
-    #     logger.info(f"Starting model deployment")
-    #     ptm.start()
+    logger.info(f"Uploading model definition")
+    ptm.put_model(model_path)
 
-    # logger.info(f"Model successfully imported with id '{ptm.model_id}'")
+    logger.info(f"Uploading model vocabulary")
+    ptm.put_vocab(vocab_path)
+
+    # Start the deployed model
+    if args.start:
+        logger.info(f"Starting model deployment")
+        ptm.start()
+
+    logger.info(f"Model successfully imported with id '{ptm.model_id}'")
 
 
